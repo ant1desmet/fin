@@ -1,5 +1,5 @@
-#setwd("E:/Common Documents/Accounting")
-setwd("C:/Users/adesmet/Documents/finance")
+setwd("E:/Common Documents/fin")
+#setwd("C:/Users/adesmet/Documents/finance")
 library(httr)
 library(ggplot2)
 library(rjson)
