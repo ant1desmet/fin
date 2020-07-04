@@ -42,7 +42,7 @@ getDividends <- function(code){
     html_nodes(xpath='//*[@id="dividends"]') %>%
     html_table() %>% 
     `[[`(1) -> divDF
-  divDF <- divDF[,c('Code','Div Amount','Date Payable')]
+  divDF <- divDF[,c('Code','Div Amount','Ex Div Date')]
   names(divDF) <- c('Code', 'Div_p_Share','TS')
   divDF$TS <- strptime(divDF$TS, "%d/%m/%Y", tz = "UTC")
   #remove future-dated TS: they're for future announcements. Wait until the date happens
