@@ -1,5 +1,5 @@
 setwd("C:/Users/adesmet/Documents/fin")
-setwd("E:/Common Documents/fin")
+#setwd("E:/Common Documents/fin")
 
 library(httr)
 library(ggplot2)
@@ -46,6 +46,8 @@ getDividends <- function(code){
   divDF <- divDF[,c('Code','Div Amount','Ex Div Date')]
   names(divDF) <- c('Code', 'Div_p_Share','TS')
   divDF$TS <- strptime(divDF$TS, "%d/%m/%Y", tz = "UTC")
+  #remove characters after code, anything after the first space encoutered
+  divDF$Code <- sub(pattern = "\\s.*",replacement = "",divDF$Code)
   #remove future-dated TS: they're for future announcements. Wait until the date happens
   divDF <- divDF[divDF$TS<Sys.time(),]
   divDF$Div_p_Share <- as.numeric(gsub("c","", divDF$Div_p_Share))/100
