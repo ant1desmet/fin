@@ -1,4 +1,6 @@
-setwd("C:/Users/adesmet/Documents/fin")
+rm(list = ls())
+
+setwd("C:/Users/antoi/Documents/fin")
 #setwd("E:/Common Documents/fin")
 
 library(httr)
@@ -12,8 +14,8 @@ library(xml2)
 library(zoo)
 library(plyr)
 
-orders <- read.csv('Order_history.csv', stringsAsFactors = F)
-orders <- orders[orders$Filled>0,]
+orders <- read.csv('orders.csv', stringsAsFactors = F)
+#orders <- orders[orders$Filled>0,]
 orders$Date <- as.POSIXct(strptime(as.character(orders$Date), "%d/%m/%Y", tz = "UTC"))
 names(orders)[names(orders)=="Date"] <- "TS"
 orders$Code <- sapply(strsplit(orders$Code,'[.]'), `[[` , 1)
@@ -37,7 +39,7 @@ getASXtimeSeries <- function(symbol){
 
 #rip dividends
 getDividends <- function(code){
-  url <- paste0("https://www.asx.com.au/asx/markets/dividends.do?by=asxCodes&asxCodes=",code,"&view=all")
+  url <- paste0("https://www.asx.com.au/asx/v2/markets/dividends.do?by=asxCodes&asxCodes=",code,"&view=all")
   url %>%
     xml2::read_html() %>%
     html_nodes(xpath='//*[@id="dividends"]') %>%
@@ -141,10 +143,10 @@ ProcessTrasaction <- function(uniqueName){
   DF$div <- DF$Div_p_Share*DF$held
   DF$runningDiv <- cumsum(DF$div)
   DF$growthVal <- NA
-  DF$growthVal[DF$held !=0]<- (DF$value[DF$held !=0]/(trans$Quantity*trans$Price))-1
+  DF$growthVal[DF$held !=0]<- (DF$value[DF$held !=0]/(trans$Quantity*trans$Avg..price))-1
   DF$growthDivs <- NA
-  DF$growthDivs[DF$held !=0] <- DF$runningDiv[DF$held !=0]/(trans$Quantity*trans$Price)
-  DF$initalPrice <- trans$Quantity*trans$Price
+  DF$growthDivs[DF$held !=0] <- DF$runningDiv[DF$held !=0]/(trans$Quantity*trans$Avg..price)
+  DF$initalPrice <- trans$Quantity*trans$Avg..price
   return(DF)
 }
 
@@ -170,14 +172,27 @@ ggplot(DFpurch, aes(colour = uniqueName, group=uniqueName))+
   geom_line(aes(y=growthVal, x=TS), colour = 'black', alpha = 0.4)+
   geom_label(data=DFLabsGrowth, aes(label = uniqueName, x=x, y=y),hjust = 0.6, vjust=-0.8, nudge_x = 3600*24 )+
   ggtitle("Growth in each transaction")+
-  scale_x_datetime(date_breaks = "2 month",date_labels = "%b %y", expand = c(0,0,0.1,0))+
+  scale_x_datetime(date_breaks = "4 month",date_labels = "%b %y", expand = c(0,0,0.1,0))+
   geom_hline(yintercept = 0, alpha = 0.5)+
+  geom_vline(xintercept = as.POSIXct(as.Date('2022-01-01')), alpha = 0.3)+
+  geom_vline(xintercept = as.POSIXct(as.Date('2022-06-15')), alpha = 0.3)+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))+
   facet_wrap(~uniqueName)
+
+
+ggplot(DFpurch, aes(colour = uniqueName, group=uniqueName))+
+  #geom_line(aes(y=growthVal+growthDivs, x=TS, size = initalPrice, alpha= 0.05))+
+  geom_line(aes(y=growthVal+growthDivs, x=TS), alpha = 0.8)+
+  #geom_line(aes(y=growthVal, x=TS), colour = 'black', alpha = 0.4)+
+  geom_label(data=DFLabsGrowth, aes(label = uniqueName, x=x, y=y),hjust = -0.2, vjust=0, nudge_x = 3600*24 )+
+  ggtitle("Growth in each transaction")+
+  scale_x_datetime(date_breaks = "3 month",date_labels = "%b %y", expand = c(0,0,0.1,0))+
+  geom_hline(yintercept = 0, alpha = 0.5)
 
 simulateBenchmark <- function(DF){
   #store the value if the money had been invested in various benchamrks
-  DFbenchCompa <- merge(DF,orders[,c("TS","Quantity", "Price")], by="TS", all.x=T)
-  DFbenchCompa$held <- (DFbenchCompa$Quantity*DFbenchCompa$Price)/DFbenchCompa$Close
+  DFbenchCompa <- merge(DF,orders[,c("TS","Quantity", "Avg..price")], by="TS", all.x=T)
+  DFbenchCompa$held <- (DFbenchCompa$Quantity*DFbenchCompa$Avg..price)/DFbenchCompa$Close
   DFbenchCompa$held[is.na(DFbenchCompa$held)] <- 0
   DFbenchCompa$held <- cumsum(DFbenchCompa$held)
   DFbenchCompa$runningDiv <- cumsum(DFbenchCompa$held*DFbenchCompa$Div_p_Share)
@@ -188,7 +203,7 @@ simulateBenchmark <- function(DF){
 
 #store the value of cash on these dates
 DFcash_contrib <- data.frame(TS=seq(min(orders$TS),max(DFpurch$TS,na.rm = T),by="days"))
-DFcash_contrib <- merge(DFcash_contrib, orders[,c("TS","Quantity","Price")],by = "TS", all.x=T)
+DFcash_contrib <- merge(DFcash_contrib, orders[,c("TS","Quantity","Avg..price")],by = "TS", all.x=T)
 DFcash_contrib[is.na(DFcash_contrib$Quantity), c("Quantity","Price")] <-0
 DFcash_contrib$invested <- cumsum(DFcash_contrib$Quantity*DFcash_contrib$Price)
 
@@ -200,9 +215,10 @@ ggplot(DFpurch)+
   geom_line(data = simulateBenchmark(VDHG), aes(y=value, x=TS), colour = "red", size = 1)+
   geom_line(data = simulateBenchmark(VAF), aes(y=value, x=TS), colour = "purple", size = 1)+
   ggtitle("Contribution of each asset to total wealth")+
-  scale_x_datetime(date_breaks = "1 month",date_minor_breaks = "1 day",date_labels = "%b %y", expand = c(0,0,0.1,0))
+  scale_x_datetime(date_breaks = "2 month",date_minor_breaks = "1 day",date_labels = "%b %y", expand = c(0,0,0.1,0))+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 
-
+View(ddply(DFpurch, .(TS), summarise, val = sum(value)+sum(runningDiv)))
 
 
 #cor(multi_full[,-1], use = "pairwise.complete.obs")
