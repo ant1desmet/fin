@@ -77,6 +77,7 @@ sum(latest_df$cagr * latest_df$settlment_val/sum(latest_df$settlment_val))
 sum(latest_df$cagr * latest_df$shares_value/sum(latest_df$shares_value))
 
 
+#Summary of values for each day (all shares)
 portfolio = ddply(df, ~snapshot_day, summarise,
       invested=max(own_cash),
       purch=sum(settlment_val),
@@ -84,7 +85,9 @@ portfolio = ddply(df, ~snapshot_day, summarise,
       divs=sum(`divs_grth_$`), 
       ttl_value=sum(`shares_value`+`divs_grth_$`)
       )
-
+# overall portfolio value
+#light: invested and portfolio value
+#dark: shares purchase value and shares+div cumul
 ggplot(portfolio, aes(x=snapshot_day))+
   geom_line(aes(y=shares), colour = 'grey')+
   geom_line(aes(y=purch), colour = 'blue')+
@@ -95,7 +98,11 @@ ggplot(portfolio, aes(x=snapshot_day))+
   geom_vline(xintercept = as.Date('2022-06-15'), alpha = 0.3, colour = 'red')+
   geom_vline(xintercept = as.Date('2023-01-01'), alpha = 0.3, colour = 'red')+
   geom_vline(xintercept = as.Date('2024-11-06'), alpha = 0.3, colour = 'green')+
-  scale_y_continuous( breaks = seq(0, max(portfolio$ttl_value)+50000, by = 50000), minor_breaks = seq(0, max(portfolio$ttl_value)+50000, by = 10000) )
+  scale_y_continuous( breaks = seq(0, max(portfolio$ttl_value)+50000, by = 50000), minor_breaks = seq(0, max(portfolio$ttl_value)+50000, by = 10000) )+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+        panel.grid.major.x = element_line(color = "lightblue"))+
+  scale_x_date(date_breaks = "1 year", minor_breaks = "1 month", date_labels = "%b %y", expand = c(0,0,0.1,0))
+
 
 #TWRR
 portfolio$period = paste0(format(portfolio$snapshot_day, "%Y"),"-", format(portfolio$snapshot_day,"%m"))
@@ -132,7 +139,6 @@ TWRR %>% group_by(year) %>%
 (cumprod(TWRR$growth)-1)*100
 
 
-
 ####HEATMAP of shares
 # Reshape the data
 wide_data <- reshape(df[,c("snapshot_day","purch_id","ttl_grth_$")], 
@@ -154,7 +160,8 @@ ggplot(correl_melted, aes(Var1, Var2, fill = value)) +
   geom_tile() +
   scale_fill_gradient(low =  "white", high = "blue") +
   labs(x = "X-axis Label", y = "Y-axis Label", fill = "Value") +
-  theme_minimal()
+  theme_minimal()+
+  geom_text(aes(label = round(value,2)))
 
 
 #Latest dividends:
@@ -163,3 +170,46 @@ merge(dividends[dividends$div_date>divsAfter,], ddply(purchases, ~code, summaris
 latestDivs$ttl <- latestDivs$dividend * latestDivs$shares
 latestDivs
 sum(latestDivs$ttl)
+
+
+#Portfolio balance and cost analysis
+#merging datasets
+shr_info <- read.csv("share_data.csv")
+code_value <- ddply(latest_df, ~code, summarize, curr_value = sum(shares_value), cagr = weighted.mean(cagr,shares_value))
+proportions <- merge(shr_info,code_value,by="code")
+proportions$ann_fees = proportions$mgmt_fees/100 * proportions$curr_value
+proportions$cagr <- ifelse(proportions$cagr>25, 25,proportions$cagr )
+
+#scatterplot: share value, fees percentage, fees paid and CAGR
+ggplot(proportions, aes(x=mgmt_fees, y=curr_value, label = code))+
+  geom_point(aes(size = ann_fees, colour = cagr))+
+  geom_text(nudge_x=0.02,hjust="left")
+
+
+#"pie bar" of holdings
+balance <- proportions$curr_value * proportions[,c("Bond","Corp_bond","Shares_aus","US.shares","Share.ex.AU_US")]
+sums_per_class <- colSums(balance)
+percentage_per_class <- round(colSums(balance)/sum(balance)*100,1)
+#formatting in a melt for ggplot
+percentage_per_class$row_id <- "Row1"
+melt_ratios <- melt(percentage_per_class, id.vars = "row_id")
+names(melt_ratios) <- c("percent", "code")
+melt_ratios <- melt_ratios[melt_ratios$code!="row_id",]
+melt_ratios$percent <- as.numeric(melt_ratios$percent)
+melt_ratios$code <- ordered(melt_ratios$code, levels = melt_ratios$code[order(melt_ratios$percent, decreasing = F)])
+melt_ratios <- melt_ratios[order(melt_ratios$percent, decreasing = T),]
+#plot
+ggplot(melt_ratios, aes(x = "", y = percent, fill = code)) +
+  geom_bar(stat = "identity", width = 1) +  # Creates a single horizontal bar
+  coord_flip() +  # Ensures the bar is horizontal
+  geom_text(aes(label = paste(code,'\n',percent,'%'), y = cumsum(percent) - percent), 
+            color = "white", size = 2, hjust="left") +  # Labels centered in each segment
+  scale_y_continuous(expand = c(0, 1)) +  # Prevents extra spacing
+  theme(
+    axis.title.y = element_blank(),  # Remove y-axis title
+    axis.text.y = element_blank(),   # Remove y-axis labels
+    axis.ticks.y = element_blank(),  # Remove y-axis ticks
+    panel.grid = element_blank()     # Remove grid lines
+  ) +
+  labs(fill = "Category")  # Legend title
+

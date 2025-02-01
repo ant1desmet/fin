@@ -6,6 +6,7 @@
 .pw
 .csv
 orders.csv
+share_data.csv
 fin.Rproj
 cockroach.pw
 cockroach.db
