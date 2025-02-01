@@ -6,13 +6,13 @@ library(magrittr)
 library(rvest)
 library(jsonlite)
 library(stringi)
-setwd("C:\\Users\\antoi\\Documents\\fin_save")
+setwd("C:\\Users\\antoi\\Documents\\fin")
 cockroach_pw <- paste(readLines("cockroach.pw"), collapse=" ")
 cockroach_dbname <- paste(readLines("cockroach.db"), collapse=" ")
 
 con <- dbConnect(RPostgres::Postgres(),
                  dbname = cockroach_dbname, 
-                 host = '6zw.cockroachlabs.cloud', 
+                 host = 'french-kangaroo-5106.6zw.aws-eu-west-1.cockroachlabs.cloud', #french-kangaroo-5106.6zw.cockroachlabs.cloud', 
                  port = 26257,
                  user = 'ant',
                  password = cockroach_pw)
@@ -41,12 +41,17 @@ getASXtimeSeries <- function(symbol,invest_start){
   print(paste("processing symbol",symbol))
   result <- GET(paste0("https://www.asx.com.au/asx/1/chart/highcharts?asx_code=",symbol,"&complete=true"))
   result <- content(result,type = "application/json")
-  result %>% unlist %>%  matrix(. ,  nrow = length(result), byrow = TRUE) %>% as.data.frame -> DF
-  names(DF) <- c("TS", c("Open","High","Low","Close","Volume"))
-  DF$TS <- as.POSIXct(DF$TS/1000, origin = "1970-01-01",tz = "UTC")
-  DF$Code <- symbol
-  DF <- DF[DF$TS>=invest_start, ]
-  return(DF)
+  if(length(result)>0){
+    result %>% unlist %>%  matrix(. ,  nrow = length(result), byrow = TRUE) %>% as.data.frame -> DF
+    names(DF) <- c("TS", c("Open","High","Low","Close","Volume"))
+    DF$TS <- as.POSIXct(DF$TS/1000, origin = "1970-01-01",tz = "UTC")
+    DF$Code <- symbol
+    DF <- DF[DF$TS>=invest_start, ]
+    return(DF)
+  }else{
+    print(paste0(symbol, ": API returned nothing, skipping."))
+    return(NULL)
+  }
 }
 
 
@@ -60,10 +65,11 @@ invest_start <- as.POSIXct("2019-06-01")
 purchases <- read.csv("orders.csv")
 purchases$Code <- substr(purchases$Code, start=0, stop=nchar(purchases$Code)-4)
 purchases$Date <- as.POSIXct(purchases$Date, format = '%d/%m/%Y')
-names(purchases) <- c("purch_date","Conf_No","Code","Quantity","Action","Avg_price","Fees","Settlment_val")
+purchases$Quantity <- as.numeric(purchases$Quantity)
+names(purchases) <- c("purch_date","Conf_No","Code","Quantity","Action","Avg_price","Fees","Settlment_val","Own_cash")
 names(purchases) <- tolower(names(purchases))
-#dbRemoveTable(con,purch_tableName)
-#dbWriteTable(con,purch_tableName,purchases)
+dbRemoveTable(con,purch_tableName)
+dbWriteTable(con,purch_tableName,purchases)
 
 #Get symbols and start dates
 earliest_purchases <- ddply(purchases, ~code, summarise,

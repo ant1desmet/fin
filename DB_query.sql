@@ -1,11 +1,13 @@
---This CTE processes the dividends
---There are many dividends so the group by is here to collapse the dividends into a sum
+--This CTE creates an incrementing index for similar codes
+--e.g. VDHG.1, VDHG.2
 WITH purchase_coded AS(
   select *, 
   (pu.code  || '.' || rank() OVER (PARTITION BY pu.code ORDER BY conf_no ASC)) as purch_id
   from purchase pu
 ),
 
+--This CTE processes the dividends
+--There are many dividends so the group by is here to collapse the dividends into a sum
 Process_div AS(
   SELECT 
   date(qt.ts) as snapshot_day,
@@ -25,12 +27,14 @@ Process_div AS(
 ),
 --This CTE processes the quotes i.e the daily prices
 Process_quotes AS(
-  SELECT date(ts) as snapshot_day,
+  SELECT
+    date(ts) as snapshot_day,
+    Own_cash,
     conf_no, 
-    round(high*quantity) AS shares_value,
+    quantity * close AS shares_value,
     round((EXTRACT(epoch FROM age(ts,purch_date)))/31556952,2) as hold_duration_yr,
-    round((quantity * close) - settlment_val) as captal_growth_dollar,
-    round(quantity * close / settlment_val * 100) -100 as capital_growth_pct
+    ((quantity * close) - settlment_val) as captal_growth_dollar,
+    (quantity * close / settlment_val * 100) -100 as capital_growth_pct
   FROM purchase_coded as pu
   JOIN quote on quote.code=pu.code
   WHERE ts>=purch_date
@@ -38,6 +42,7 @@ Process_quotes AS(
 SELECT 
   Process_quotes.snapshot_day as snapshot_day,
   Process_quotes.conf_no as conf_no,
+  Process_quotes.Own_cash as own_cash,
   code,
   purch_id,
   purch_date,
