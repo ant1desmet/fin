@@ -34,7 +34,6 @@ ggplot(df, aes(x=snapshot_day, y=ttl_grth_pct))+
   geom_vline(xintercept = as.Date('2020-03-20'), alpha = 0.3, colour = 'red')+
   geom_vline(xintercept = as.Date('2022-01-01'), alpha = 0.3, colour = 'green')+
   geom_vline(xintercept = as.Date('2022-06-15'), alpha = 0.3, colour = 'red')+
-  geom_vline(xintercept = as.Date('2023-01-01'), alpha = 0.3, colour = 'red')+
   geom_vline(xintercept = as.Date('2024-11-06'), alpha = 0.3, colour = 'green')+
   facet_wrap(~purch_id)+
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
@@ -50,7 +49,6 @@ ggplot(df[df$snapshot_day>as.Date('2024-07-01'),], aes(x=snapshot_day, y=ttl_grt
   geom_vline(xintercept = as.Date('2020-03-20'), alpha = 0.3, colour = 'red')+
   geom_vline(xintercept = as.Date('2022-01-01'), alpha = 0.3, colour = 'green')+
   geom_vline(xintercept = as.Date('2022-06-15'), alpha = 0.3, colour = 'red')+
-  geom_vline(xintercept = as.Date('2023-01-01'), alpha = 0.3, colour = 'red')+
   geom_vline(xintercept = as.Date('2024-11-06'), alpha = 0.3, colour = 'green')+
   facet_wrap(~purch_id)+
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
@@ -96,7 +94,18 @@ ggplot(portfolio, aes(x=snapshot_day))+
   geom_vline(xintercept = as.Date('2020-03-20'), alpha = 0.3, colour = 'red')+
   geom_vline(xintercept = as.Date('2022-01-01'), alpha = 0.3, colour = 'green')+
   geom_vline(xintercept = as.Date('2022-06-15'), alpha = 0.3, colour = 'red')+
-  geom_vline(xintercept = as.Date('2023-01-01'), alpha = 0.3, colour = 'red')+
+  geom_vline(xintercept = as.Date('2024-11-06'), alpha = 0.3, colour = 'green')+
+  scale_y_continuous( breaks = seq(0, max(portfolio$ttl_value)+50000, by = 50000), minor_breaks = seq(0, max(portfolio$ttl_value)+50000, by = 10000) )+
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+        panel.grid.major.x = element_line(color = "lightblue"))+
+  scale_x_date(date_breaks = "1 year", minor_breaks = "1 month", date_labels = "%b %y", expand = c(0,0,0.1,0))
+
+ggplot(portfolio, aes(x=snapshot_day))+
+  geom_line(aes(y=shares-invested), colour = 'grey')+
+  geom_line(aes(y=ttl_value-purch), colour = 'black')+
+  geom_vline(xintercept = as.Date('2020-03-20'), alpha = 0.3, colour = 'red')+
+  geom_vline(xintercept = as.Date('2022-01-01'), alpha = 0.3, colour = 'green')+
+  geom_vline(xintercept = as.Date('2022-06-15'), alpha = 0.3, colour = 'red')+
   geom_vline(xintercept = as.Date('2024-11-06'), alpha = 0.3, colour = 'green')+
   scale_y_continuous( breaks = seq(0, max(portfolio$ttl_value)+50000, by = 50000), minor_breaks = seq(0, max(portfolio$ttl_value)+50000, by = 10000) )+
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
